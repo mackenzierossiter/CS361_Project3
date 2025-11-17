@@ -1,8 +1,9 @@
-/* Procurement Client
-
-Gwen Lumsden and Mackenzie Rossiter
-
-*/
+//---------------------------------------------------------------------
+// Assignment : PA-03 UDP Single-Threaded Server
+// Date       :
+// Author     : WRITE YOUR  NAME(S)  HERE  ... or risk losing points
+// File Name  : procurement.c
+//---------------------------------------------------------------------
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -13,39 +14,126 @@ Gwen Lumsden and Mackenzie Rossiter
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
-#define MAXBUFLEN 256
-#define IPSTRLEN 50
+#include "wrappers.h"
+#include "message.h"
+
+#define MAXFACTORIES    20
+
 typedef struct sockaddr SA ;
 
-/*------------------------------------------------------------------------
-* Error Handling Functions
-*----------------------------------------------------------------------*/
-void err_sys(const char* msg)
+/*-------------------------------------------------------*/
+int main( int argc , char *argv[] )
 {
-fflush( stderr ) ;
-perror(msg);
-exit(1);
-}
+    int     numFactories ,      // Total Number of Factory Threads
+            activeFactories ,   // How many are still alive and manufacturing parts
+            iters[ MAXFACTORIES+1 ] = {0} ,  // num Iterations completed by each Factory
+            partsMade[ MAXFACTORIES+1 ] = {0} , totalItems = 0;
 
-/*------------------------------------------------------------------------
-* procurement client
-*----------------------------------------------------------------------*/
+    char  *myName = "MUST WRITE YOUR NAMES HERE" ; 
+    printf("\nPROCUREMENT: Started. Developed by %s\n\n" , myName );    
 
-int main( int argc , char *argv[] ) {
+    char myUserName[30] ;
+    getlogin_r ( myUserName , 30 ) ;
+    time_t  now;
+    time( &now ) ;
+    fprintf( stdout , "Logged in as user '%s' on %s\n\n" , myUserName ,  ctime( &now)  ) ;
+    fflush( stdout ) ;
+    
     if ( argc < 4 )
     {
-        fprintf(stderr, "usage: %s orderSize ip_address port \n" , argv[0] );
-        exit(1);
+        printf("PROCUREMENT Usage: %s  <order_size> <FactoryServerIP>  <port>\n" , argv[0] );
+        exit( -1 ) ;  
     }
-    
-    int orderSize = atoi(arg[1]);
-    char ipAdr = arg[2]; //need to figure out the type somewhere in lab
-    unsigned short portNum = (unsigned short) atoi(arg[3]);
 
-    //set up udp
+    unsigned        orderSize  = atoi( argv[1] ) ;
+    char	       *serverIP   = argv[2] ;
+    unsigned short  port       = (unsigned short) atoi( argv[3] ) ;
+ 
+
+    /* Set up local and remote sockets */
 
 
-    //send request message over udp to factory udp
+    // missing code goes here
 
+
+    // Prepare the server's socket address structure
+
+
+    // missing code goes here
+
+
+
+    // Send the initial request to the Factory Server
+    msgBuf  msg1;
+
+
+    // missing code goes here
+
+
+    printf("\nPROCUREMENT Sent this message to the FACTORY server: "  );
+    printMsg( & msg1 );  puts("");
+
+
+    /* Now, wait for oreder confirmation from the Factory server */
+    msgBuf  msg2;
+    printf ("\nPROCUREMENT is now waiting for order confirmation ...\n" );
+
+
+    // missing code goes here
+
+
+
+    printf("PROCUREMENT received this from the FACTORY server: "  );
+    printMsg( & msg2 );  puts("\n");
+
+
+
+    // missing code goes here
+
+
+    // Monitor all Active Factory Lines & Collect Production Reports
+    while ( activeFactories > 0 ) // wait for messages from sub-factories
+    {
+
+
+        // missing code goes here
+
+
+
+       // Inspect the incoming message
+
+
+       // missing code goes here
+
+
+       
+    } 
+
+    // Print the summary report
+    totalItems  = 0 ;
+    printf("\n\n****** PROCUREMENT Summary Report ******\n");
+
+
+    // missing code goes here
+
+
+    printf("==============================\n") ;
+
+
+    // missing code goes here
+
+
+    printf( "\n>>> Supervisor Terminated\n");
+
+
+
+    // missing code goes here
+
+
+    return 0 ;
 }
