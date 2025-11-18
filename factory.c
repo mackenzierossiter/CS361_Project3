@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------
 // Assignment : PA-03 UDP Single-Threaded Server
 // Date       :
-// Author     : WRITE YOUR  NAME(S)  HERE  ... or risk losing points
+// Author     : Gwen Lumsden and Mackenzie Rossiter
 // File Name  : factory.c
 //---------------------------------------------------------------------
 
@@ -53,6 +53,7 @@ struct sockaddr_in
              srvrSkt,       /* the address of this server   */
              clntSkt;       /* remote client's socket       */
 
+unsigned int alen = sizeof(clntSkt) ;
 //------------------------------------------------------------
 //  Handle Ctrl-C or KILL 
 //------------------------------------------------------------
@@ -61,15 +62,25 @@ void goodbye(int sig)
     /* Mission Accomplished */
     printf( "\n### I (%d) have been nicely asked to TERMINATE. "
            "goodbye\n\n" , getpid() );  
+    switch( sig ) {
+        case SIGTERM:
+            printf("nicely asked to TERMINATE by SIGTERM ( %d ).\n" , sig ) ;
+            break ;
+        
+        case SIGINT:
+            printf("INTERRUPTED by SIGINT ( %d )\n" , sig ) ;
+            break ;
 
-    // missing code goes here
+        default:
+            printf("unexpectedly SIGNALed by ( %d )\n" , sig ) ;
+    }
 
 }
 
 /*-------------------------------------------------------*/
 int main( int argc , char *argv[] )
 {
-    char  *myName = "Replace with your Names" ; 
+    char  *myName = "Kenzie&Gwen" ; 
     unsigned short port = 50015 ;      /* service port number  */
     int    N = 1 ;                     /* Num threads serving the client */
 
@@ -104,18 +115,56 @@ int main( int argc , char *argv[] )
 
     // missing code goes here
 
+    // creating buffers needed for socket
+    char buf  [ MAXSTR ] ;
+    char ipStr[ IPSTRLEN ] ;
+
+
+    // create the socket file descriptor
+    sd = socket( AF_INET, SOCK_DGRAM, 0) ;
+    if ( sd < 0 ) {
+        err_sys("Could NOT create socket") ;
+    }
+
+
+    // Prepare the server's socket address structure
+    memset( (void *) & srvrSkt , 0 , sizeof( srvrSkt ) );
+    srvrSkt.sin_family = AF_INET;
+    srvrSkt.sin_addr.s_addr = htonl( INADDR_ANY );
+    srvrSkt.sin_port = htons( port ) ;
+
+
+    // Now, bind the server to above socket
+    if ( bind( sd, (SA *) & srvrSkt , sizeof(srvrSkt) ) < 0 )
+    {
+        snprintf( buf, MAXSTR, "Could NOT bind to port %d", port );
+        err_sys( buf ) ;
+    }
+
+    // bounding the socket to the IP and Port
+    inet_ntop( AF_INET, (void *) & srvrSkt.sin_addr.s_addr , ipStr , IPSTRLEN ) ;
+    
+
 
     int forever = 1;
     while ( forever )
     {
         printf( "\nFACTORY server waiting for Order Requests\n" ) ; 
+        alen = sizeof(clntSkt) ;
 
-        // missing code goes here
+        msgBuf msg1;
+
+        if ( recvfrom( sd , &msg1 , MAXSTR , 0 , (SA *) & clntSkt , & alen ) < 0 )
+            err_sys( "recvfrom" ) ;
+        
 
         printf("\n\nFACTORY server received: " ) ;
         printMsg( & msg1 );  puts("");
 
-
+        // send an order confirm message
+        msg1.purpose = ORDR_CONFIRM ;
+        msg1.numFac  = N;
+        remainsToMake = msg1.orderSize ;
         // missing code goes here
 
 
@@ -133,7 +182,9 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
 {
     char    strBuff[ MAXSTR ] ;   // snprint buffer
     int     partsImade = 0 , myIterations = 0 ;
-    msgBuf  msg;
+    msgBuf  msg2;
+
+    int toMake;
 
     while ( 1 )
     {
@@ -141,24 +192,40 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
         if ( remainsToMake <= 0 )
             break ;   // Not anymore, exit the loop
         
+        
+        // how many to make
+        toMake = minimum(remainsToMake, myCapacity) ;
 
-
-        // missing code goes here
+        // update remainToMake
+        remainsToMake -= toMake;
+        
+        // sleep to simulate making items
+        int sleep_time = myDuration * 1000 ;
+        usleep( sleep_time ) ;
+        partsImade += toMake ;
+        
 
 
 
         // Send a Production Message to Supervisor
+        
 
+        msg2.purpose   = PRODUCTION_MSG ;
+        msg2.facID     = factoryID      ;
+        msg2.capacity  = myCapacity     ;
+        msg2.duration  = myDuration     ;
+        msg2.partsMade = partsImade    ;
 
+        
         // missing code goes here
 
-
+       
+        myIterations ++ ;
     }
 
     // Send a Completion Message to Supervisor
-
-
-    // missing code goes here
+    msg2.purpose = COMPLETION_MSG ;
+    sendto( sd , &msg2 , MAXSTR , 0 , (SA *) & clntSkt , alen ) ;
 
 
 
