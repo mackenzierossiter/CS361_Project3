@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------
 // Assignment : PA-03 UDP Single-Threaded Server
 // Date       :
-// Author     : WRITE YOUR  NAME(S)  HERE  ... or risk losing points
+// Author     : Gwen Lumsden and Mackenzie Rossiter
 // File Name  : procurement.c
 //---------------------------------------------------------------------
 
@@ -76,12 +76,16 @@ int main( int argc , char *argv[] )
     // Send the initial request to the Factory Server
     msgBuf  msg1;
 
-    msg1.purpose = REQUEST_MSG;
-    msg1.orderSize = orderSize;
-    msg1.factoryID = 0;
-    msg1.capacity = 0;
-    msg1.numItemsMade = 0;
-    msg1.duration = 0;
+    msg1.purpose = ntohl(REQUEST_MSG);
+    msg1.orderSize = ntohl (orderSize);
+    msg1.facID = ntohl(0);
+    msg1.capacity = ntohl (0);
+    msg1.partsMade = ntohl (0);
+    msg1.duration = ntohl (0);
+
+
+
+    printf("Attempting Factory server at '%s' : %d\n", serverIP, port);
 
     if ( sendto(sd, &msg1, sizeof(msg1), 0, (SA *) &srvSkt, sizeof(srvSkt)) < 0){
         err_sys("procurement sendto failed");
@@ -94,44 +98,62 @@ int main( int argc , char *argv[] )
 
     /* Now, wait for oreder confirmation from the Factory server */
     msgBuf  msg2;
+    
+
     printf ("\nPROCUREMENT is now waiting for order confirmation ...\n" );
 
 
     unsigned int alen = sizeof(srvSkt);
-    if (recvfrom(sd, &msg2, sizeof(msg2), 0, (SA *) &srvSkt, &alen) < 0) {
+    if (recvfrom(sd, &msg2, sizeof(msg2), 0, (SA *) &srvSkt, &alen) < 0) 
+    {
         err_sys("procurement recvfrom failed");
     }
+    // ntohl ( msg2.purpose   ) ;
+    // ntohl ( msg2.orderSize ) ;
+    // ntohl ( msg2.facID     ) ;
+    // ntohl ( msg2.capacity  ) ;
+    // ntohl ( msg2.partsMade ) ;
+    // ntohl ( msg2.duration  ) ;
+
 
     printf("PROCUREMENT received this from the FACTORY server: "  );
     printMsg( & msg2 );  puts("\n");
 
 
-    if (msg2.purpose == ORDR_CONFIRM) {
-        activeFactories = msg2.numFac;
-        numFactories = msg2.numFac;
+    if (ntohl ( msg2.purpose ) == ORDR_CONFIRM) {
+        activeFactories = ntohl (msg2.numFac) ;
+        numFactories = ntohl (msg2.numFac) ;
     } else {
         err_sys("not a order message");
     }
     
 
-
     // Monitor all Active Factory Lines & Collect Production Reports
     while ( activeFactories > 0 ) // wait for messages from sub-factories
     {
+        
         msgBuf msg3;
 
-        alen = sizeof(srvSkt);
-        if (recvfrom(sd, &msg3, sizeof(msg3), 0, (SA *) &srvSkt, sizeof(srvSkt)) < 0) {
+        unsigned int alen = sizeof(srvSkt);
+        if (recvfrom(sd, &msg3, sizeof(msg3), 0, (SA *) &srvSkt, &alen) < 0) {
             err_sys("procurement recvfrom failed");
         }
 
-       // Inspect the incoming message
+        int recvFactID    = ntohl ( msg3.facID     ) ;
+        int recvPartsMade = ntohl ( msg3.partsMade ) ;
+        int recvDuration  = ntohl ( msg3.duration  ) ;
+        printf("Factory #  %d: Going to make    %d parts in  %d mSec\n", recvFactID, recvPartsMade, recvDuration ) ;
 
-       if (msg3.purpose == PRODUCTION_MSG) {
+        // msg3.purpose = ntohl ( msg3.purpose ) ;
+       // Inspect the incoming message
+       
+       if (msg3.purpose  == PRODUCTION_MSG) {
+            printf("in if on line 151\n");
             printMsg( & msg3 );  puts("\n");
             iters[msg3.facID]++;
             partsMade[msg3.facID] += msg3.partsMade;
-       } else if (msg3.purpose == COMPLETION_MSG) {
+       } else if ( msg3.purpose  == COMPLETION_MSG) {
+            printf("in if on line 156\n") ;
             activeFactories--;
        }
     } 
@@ -141,7 +163,7 @@ int main( int argc , char *argv[] )
     printf("\n\n****** PROCUREMENT Summary Report ******\n");
 
     for (int i = 1; i <= numFactories; i++) {
-        printf("Factory #   %d made a total of %5d in %5d\n", i, partsMade[i], iters[i]);
+        printf("Factory #   %d made a total of %5d in %5d iterations\n", i, partsMade[i], iters[i]);
         totalItems += partsMade[i];
     }
 

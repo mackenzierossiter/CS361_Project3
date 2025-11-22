@@ -54,9 +54,13 @@ struct sockaddr_in
              clntSkt;       /* remote client's socket       */
 
 unsigned int alen = sizeof(clntSkt) ;
+
+
+
 //------------------------------------------------------------
 //  Handle Ctrl-C or KILL 
 //------------------------------------------------------------
+
 void goodbye(int sig) 
 {
     /* Mission Accomplished */
@@ -74,17 +78,21 @@ void goodbye(int sig)
         default:
             printf("unexpectedly SIGNALed by ( %d )\n" , sig ) ;
     }
-
+    exit(0);
 }
 
 /*-------------------------------------------------------*/
 int main( int argc , char *argv[] )
 {
+    // create vars
     char  *myName = "Kenzie&Gwen" ; 
     unsigned short port = 50015 ;      /* service port number  */
     int    N = 1 ;                     /* Num threads serving the client */
 
+    // print name
     printf("\nThis is the FACTORY server developed by %s\n\n" , myName ) ;
+
+    // print eid and start time
     char myUserName[30] ;
     getlogin_r ( myUserName , 30 ) ;
     time_t  now;
@@ -92,7 +100,14 @@ int main( int argc , char *argv[] )
     fprintf( stdout , "Logged in as user '%s' on %s\n\n" , myUserName ,  ctime( &now)  ) ;
     fflush( stdout ) ;
 
-	switch (argc) 
+
+    // Handle signals
+    sigactionWrapper ( SIGINT ,  goodbye ) ;
+    sigactionWrapper ( SIGTERM,  goodbye ) ;
+	
+    
+    // handle cmd line args
+    switch (argc) 
 	{
       case 1:
         break ;     // use default port with a single factory thread
@@ -113,7 +128,7 @@ int main( int argc , char *argv[] )
     }
 
 
-    // missing code goes here
+
 
     // creating buffers needed for socket
     char buf  [ MAXSTR ] ;
@@ -134,7 +149,7 @@ int main( int argc , char *argv[] )
     srvrSkt.sin_port = htons( port ) ;
 
 
-    // Now, bind the server to above socket
+    // bind the server to above socket
     if ( bind( sd, (SA *) & srvrSkt , sizeof(srvrSkt) ) < 0 )
     {
         snprintf( buf, MAXSTR, "Could NOT bind to port %d", port );
@@ -145,6 +160,7 @@ int main( int argc , char *argv[] )
     inet_ntop( AF_INET, (void *) & srvrSkt.sin_addr.s_addr , ipStr , IPSTRLEN ) ;
     
 
+    printf("Bound socket %d to IP %s Port %d\n", sd, ipStr, port);
 
     int forever = 1;
     while ( forever )
@@ -154,19 +170,29 @@ int main( int argc , char *argv[] )
 
         msgBuf msg1;
 
-        if ( recvfrom( sd , &msg1 , MAXSTR , 0 , (SA *) & clntSkt , & alen ) < 0 )
+        if ( recvfrom( sd , &msg1 , sizeof(msg1) , 0 , (SA *) & clntSkt , & alen ) < 0 )
+        {
             err_sys( "recvfrom" ) ;
-        
-
+        }
+            
         printf("\n\nFACTORY server received: " ) ;
         printMsg( & msg1 );  puts("");
 
-        // send an order confirm message
-        msg1.purpose = ORDR_CONFIRM ;
-        msg1.numFac  = N;
-        remainsToMake = msg1.orderSize ;
-        // missing code goes here
+        
+        // get IP and port from sender
+        inet_ntop( AF_INET, (void *) & clntSkt.sin_addr.s_addr , ipStr , IPSTRLEN ) ;
+        printf("\t\tfrom IP %s Port %d\n" , ipStr , ntohs( clntSkt.sin_port ) ) ;
 
+
+        // send an order confirm message
+        msg1.purpose = htonl(ORDR_CONFIRM) ;
+        msg1.numFac  = htonl (N) ;
+        remainsToMake = htonl (msg1.orderSize) ;
+        
+        if (sendto( sd , &msg1 , sizeof(msg1) , 0 , (SA *) & clntSkt , alen ) < 0 )
+        {
+            err_sys( "recvfrom" ) ;
+        }
 
         printf("\n\nFACTORY sent this Order Confirmation to the client " );
         printMsg(  & msg1 );  puts("");
@@ -181,7 +207,8 @@ int main( int argc , char *argv[] )
 void subFactory( int factoryID , int myCapacity , int myDuration )
 {
     char    strBuff[ MAXSTR ] ;   // snprint buffer
-    int     partsImade = 0 , myIterations = 0 ;
+    int     partsImade = 0   ; 
+    int     myIterations = 0 ;
     msgBuf  msg2;
 
     int toMake;
@@ -196,6 +223,7 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
         // how many to make
         toMake = minimum(remainsToMake, myCapacity) ;
 
+        printf("Factory #  %d: Going to make    %d parts in  %d mSec\n", factoryID, toMake, myDuration) ;
         // update remainToMake
         remainsToMake -= toMake;
         
@@ -208,25 +236,26 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
 
 
         // Send a Production Message to Supervisor
-        
+        msg2.purpose   = htonl ( PRODUCTION_MSG) ;
+        msg2.facID     = htonl ( factoryID )     ;
+        msg2.capacity  = htonl ( myCapacity )    ;
+        msg2.duration  = htonl ( myDuration )    ;
+        msg2.partsMade = htonl ( partsImade )    ;
 
-        msg2.purpose   = PRODUCTION_MSG ;
-        msg2.facID     = factoryID      ;
-        msg2.capacity  = myCapacity     ;
-        msg2.duration  = myDuration     ;
-        msg2.partsMade = partsImade    ;
-
-        
-        // missing code goes here
-
+        if (sendto( sd , &msg2 , sizeof(msg2) , 0 , (SA *) & clntSkt , alen ) < 0 )
+        {
+            err_sys( "recvfrom" ) ;
+        }
+        printf("\nline 249, production message was sent\n") ;
        
         myIterations ++ ;
     }
 
+    
+    
     // Send a Completion Message to Supervisor
     msg2.purpose = COMPLETION_MSG ;
-    sendto( sd , &msg2 , MAXSTR , 0 , (SA *) & clntSkt , alen ) ;
-
+    sendto( sd , &msg2 , sizeof(msg2) , 0 , (SA *) & clntSkt , alen ) ;
 
 
     snprintf( strBuff , MAXSTR , ">>> Factory # %-3d: Terminating after making total of %-5d parts in %-4d iterations\n" 
