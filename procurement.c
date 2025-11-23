@@ -133,29 +133,37 @@ int main( int argc , char *argv[] )
     {
         
         msgBuf msg3;
+        memset( (void *) & msg3 , 0 , sizeof( msg3 ) );
 
         unsigned int alen = sizeof(srvSkt);
         if (recvfrom(sd, &msg3, sizeof(msg3), 0, (SA *) &srvSkt, &alen) < 0) {
             err_sys("procurement recvfrom failed");
         }
+        
 
         int recvFactID    = ntohl ( msg3.facID     ) ;
         int recvPartsMade = ntohl ( msg3.partsMade ) ;
         int recvDuration  = ntohl ( msg3.duration  ) ;
-        printf("Factory #  %d: Going to make    %d parts in  %d mSec\n", recvFactID, recvPartsMade, recvDuration ) ;
+        int recvPurpose   = ntohl ( msg3.purpose   ) ;
 
-        // msg3.purpose = ntohl ( msg3.purpose ) ;
+        
        // Inspect the incoming message
-       
-       if (msg3.purpose  == PRODUCTION_MSG) {
-            printf("in if on line 151\n");
-            printMsg( & msg3 );  puts("\n");
-            iters[msg3.facID]++;
-            partsMade[msg3.facID] += msg3.partsMade;
-       } else if ( msg3.purpose  == COMPLETION_MSG) {
-            printf("in if on line 156\n") ;
+        if ( recvPurpose  == PRODUCTION_MSG) 
+        {
+            printf("Procurement: Factory #  %d: Going to make    %d parts in  %d mSec\n", recvFactID, recvPartsMade, recvDuration ) ;
+            iters[recvFactID]++;
+            partsMade[recvFactID] += recvPartsMade;
+        } else if ( recvPurpose  == COMPLETION_MSG) 
+        {
             activeFactories--;
-       }
+        } else if (recvPurpose  == PROTOCOL_ERR)
+        {
+            printf("Procurement: Received invalid msg ") ;
+            printMsg ( &msg3 ) ;
+            printf("\n\n") ;
+            exit(0) ;
+        }
+       
     } 
 
     // Print the summary report

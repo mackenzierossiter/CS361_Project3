@@ -65,19 +65,31 @@ void goodbye(int sig)
 {
     /* Mission Accomplished */
     printf( "\n### I (%d) have been nicely asked to TERMINATE. "
-           "goodbye\n\n" , getpid() );  
-    switch( sig ) {
-        case SIGTERM:
-            printf("nicely asked to TERMINATE by SIGTERM ( %d ).\n" , sig ) ;
-            break ;
-        
-        case SIGINT:
-            printf("INTERRUPTED by SIGINT ( %d )\n" , sig ) ;
-            break ;
+           "goodbye\n\n" , getpid() ); 
+           
+    alen = sizeof(clntSkt) ;
 
-        default:
-            printf("unexpectedly SIGNALed by ( %d )\n" , sig ) ;
+    msgBuf msg1;
+    memset( (void *) & msg1 , 0 , sizeof( msg1 ) );
+    msg1.purpose = htonl( PROTOCOL_ERR ) ;
+
+    if (sendto( sd , &msg1 , sizeof(msg1) , 0 , (SA *) & clntSkt , alen ) < 0 )
+    {
+        err_sys( "recvfrom" ) ;
     }
+
+    // switch( sig ) {
+    //     case SIGTERM:
+    //         printf("nicely asked to TERMINATE by SIGTERM ( %d ).\n" , sig ) ;
+    //         break ;
+        
+    //     case SIGINT:
+    //         printf("INTERRUPTED by SIGINT ( %d )\n" , sig ) ;
+    //         break ;
+
+    //     default:
+    //         printf("unexpectedly SIGNALed by ( %d )\n" , sig ) ;
+    // }
     exit(0);
 }
 
@@ -210,11 +222,12 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
     int     partsImade = 0   ; 
     int     myIterations = 0 ;
     msgBuf  msg2;
-
+    
     int toMake;
 
     while ( 1 )
     {
+        memset( (void *) & msg2 , 0 , sizeof( msg2 ) );
         // See if there are still any parts to manufacture
         if ( remainsToMake <= 0 )
             break ;   // Not anymore, exit the loop
@@ -230,7 +243,7 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
         // sleep to simulate making items
         int sleep_time = myDuration * 1000 ;
         usleep( sleep_time ) ;
-        partsImade += toMake ;
+        partsImade = toMake ;
         
 
 
@@ -242,11 +255,12 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
         msg2.duration  = htonl ( myDuration )    ;
         msg2.partsMade = htonl ( partsImade )    ;
 
-        if (sendto( sd , &msg2 , sizeof(msg2) , 0 , (SA *) & clntSkt , alen ) < 0 )
+        if (sendto( sd , (void*) &msg2 , sizeof(msg2) , 0 , (SA *) & clntSkt , alen ) < 0 )
         {
             err_sys( "recvfrom" ) ;
         }
-        printf("\nline 249, production message was sent\n") ;
+        
+        // printf("\nline 249, production message was sent\n") ;
        
         myIterations ++ ;
     }
@@ -254,7 +268,7 @@ void subFactory( int factoryID , int myCapacity , int myDuration )
     
     
     // Send a Completion Message to Supervisor
-    msg2.purpose = COMPLETION_MSG ;
+    msg2.purpose = htonl ( COMPLETION_MSG )  ;
     sendto( sd , &msg2 , sizeof(msg2) , 0 , (SA *) & clntSkt , alen ) ;
 
 
